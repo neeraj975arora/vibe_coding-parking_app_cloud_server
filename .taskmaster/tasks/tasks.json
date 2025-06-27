@@ -1,0 +1,254 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Project Repository and Initial Docker Compose",
+        "description": "Set up the project repository structure and initial Docker Compose file to define the core services: Flask application, PostgreSQL database, and Nginx reverse proxy.",
+        "details": "Initialize a Git repository. Create a project directory structure (e.g., `app/`, `db/`, `nginx/`, `docker-compose.yml`). Create a basic `docker-compose.yml` (version 3.8) defining services for `app`, `db`, and `nginx`. Use placeholder images initially (e.g., `python:3.9-slim`, `postgres:14`, `nginx:stable`). Define basic networks and named volumes for the database.",
+        "testStrategy": "Verify that `docker-compose.yml` is syntactically correct and `docker-compose config` runs without errors. Ensure basic directory structure is created.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Configure PostgreSQL Service and Initial Schema",
+        "description": "Configure the PostgreSQL database service within Docker Compose, set up persistent storage using named volumes, and create an initial database schema script.",
+        "details": "Update the `db` service in `docker-compose.yml` to use `postgres:14`. Define environment variables for database name, user, and password (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`). Map a named volume to `/var/lib/postgresql/data` for persistence. Create an initial SQL script (`db/init.sql`) to create the necessary database and user, or rely on the default entrypoint behavior. Consider using Alembic for migrations later, but for MVP, a simple script is sufficient.",
+        "testStrategy": "Run `docker-compose up -d db`. Connect to the running PostgreSQL container using `docker exec` and `psql` to verify the database and user are created correctly and the volume is mounted.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Setup Basic Flask Application Structure",
+        "description": "Set up the basic Flask application structure, including configuration handling and initialization of necessary extensions like SQLAlchemy.",
+        "details": "Inside the `app/` directory, create `__init__.py` to initialize the Flask app. Use Flask's application factory pattern. Create a `config.py` for settings (database URI, secret key, etc.), reading from environment variables (e.g., using `python-dotenv` or directly from `os.environ`). Install Flask and Flask-SQLAlchemy (`pip install Flask Flask-SQLAlchemy`). Initialize SQLAlchemy within the app factory.",
+        "testStrategy": "Create a minimal `app.py` or `wsgi.py` to run the app factory. Verify the app starts without errors and configuration is loaded correctly. Check if the SQLAlchemy extension is initialized.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Define Core SQLAlchemy Models (Users, ParkingLotDetails)",
+        "description": "Define the core SQLAlchemy ORM models based on the PRD's data models, starting with `Users` and `ParkingLotDetails`.",
+        "details": "Create a `models.py` file in the `app/` directory. Define SQLAlchemy models for `Users` (with fields like `id`, `username`, `password_hash`) and `ParkingLotDetails` (with fields like `id`, `name`, `address`, etc.). Use appropriate SQLAlchemy column types (e.g., `Integer`, `String`, `Boolean`). Implement password hashing for the `Users` model (e.g., using `werkzeug.security.generate_password_hash`).",
+        "testStrategy": "Write a simple script or Flask shell command to import the models and attempt to create instances without saving to the database, verifying model definition syntax is correct.",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Define Hierarchical SQLAlchemy Models (Floor, Row, Slot)",
+        "description": "Define the hierarchical SQLAlchemy ORM models for `Floor`, `Row`, and `Slot`, establishing relationships with `ParkingLotDetails` and each other.",
+        "details": "Extend `models.py` to include `Floor`, `Row`, and `Slot` models. Define foreign key relationships: `Floor` belongs to `ParkingLotDetails`, `Row` belongs to `Floor`, and `Slot` belongs to `Row`. Use SQLAlchemy relationships (`db.relationship`) to allow easy traversal (e.g., `parking_lot.floors`, `floor.rows`, `row.slots`). Include relevant fields like `floor_number`, `row_name`, `slot_number`, and `status` (e.g., 'free', 'occupied').",
+        "testStrategy": "Write a script or use the Flask shell to create instances of all models and link them hierarchically in memory, verifying relationships are defined correctly.",
+        "priority": "high",
+        "dependencies": [
+          4
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Implement User Authentication (Registration, Login) with JWT",
+        "description": "Implement user authentication endpoints using JWT (JSON Web Tokens) for registration and login.",
+        "details": "Install Flask-JWT-Extended (`pip install Flask-JWT-Extended`). Initialize the extension in `__init__.py`. Create a `auth.py` blueprint or module. Implement `/register` endpoint to create new users (hashing passwords). Implement `/login` endpoint to verify credentials and return access and refresh JWT tokens. Use `jwt_required()` decorator for protected routes later. Consider using Marshmallow for request body validation.",
+        "testStrategy": "Use a tool like Postman or `curl` to send POST requests to `/register` and `/login`. Verify user creation in the database and successful login returns JWT tokens. Test with invalid credentials.",
+        "priority": "high",
+        "dependencies": [
+          5
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Implement Parking Lot Structure CRUD API",
+        "description": "Implement REST API endpoints for creating, reading, updating, and deleting `ParkingLotDetails`, `Floor`, `Row`, and `Slot` entities.",
+        "details": "Create blueprints or modules for parking lot management (e.g., `parking.py`). Implement endpoints like `/parking_lots`, `/parking_lots/<id>`, `/floors`, `/floors/<id>`, etc. Use SQLAlchemy to interact with the database. Protect these endpoints using `@jwt_required()`. Use Marshmallow schemas for request data validation and response serialization to ensure consistent data format.",
+        "testStrategy": "Use API testing tools (Postman, `curl`) to perform CRUD operations on each entity type. Verify data is correctly stored and retrieved from the database. Test authentication by accessing endpoints without a valid token.",
+        "priority": "high",
+        "dependencies": [
+          6
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Implement Slot Status Update API for RPi",
+        "description": "Implement a dedicated REST API endpoint for Per-Parking-Servers (RPi) to push real-time slot status updates.",
+        "details": "Create a specific endpoint, e.g., `/api/v1/slots/update_status`. This endpoint should accept data identifying the slot (e.g., `slot_id` or a unique identifier like `parking_lot_id`, `floor_number`, `row_name`, `slot_number`) and the new `status` ('free'/'occupied'). Implement logic to find the specific slot in the database and update its status. Consider a simple API key or token mechanism for RPi authentication if JWT is too complex for the embedded device (though JWT is preferred if feasible). Use Marshmallow for input validation.",
+        "testStrategy": "Simulate an RPi request using Postman or `curl` to the update endpoint. Verify the slot status is updated correctly in the database. Test with invalid slot identifiers and invalid status values.",
+        "priority": "high",
+        "dependencies": [
+          7
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Implement Slot Status Fetch API for Clients",
+        "description": "Implement REST API endpoints for mobile apps and admin dashboards to fetch parking lot structure and real-time slot availability.",
+        "details": "Implement endpoints like `/api/v1/parking_lots` (list all), `/api/v1/parking_lots/<id>` (get details including nested floors, rows, slots with status). Use SQLAlchemy to query the data. Use Marshmallow schemas with nested fields to serialize the hierarchical data structure efficiently for the frontend clients. Protect these endpoints with `@jwt_required()`.",
+        "testStrategy": "Use API testing tools to fetch data from the implemented endpoints. Verify the response structure matches the required format and contains accurate, up-to-date slot status information. Test filtering or querying if implemented (e.g., get slots for a specific floor).",
+        "priority": "high",
+        "dependencies": [
+          7
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Integrate Gunicorn/uWSGI",
+        "description": "Integrate a production-ready WSGI server (Gunicorn or uWSGI) to serve the Flask application.",
+        "details": "Install Gunicorn (`pip install gunicorn`). Create a `wsgi.py` file that imports the Flask application instance. Update the `app` service in `docker-compose.yml` to use Gunicorn as the command (e.g., `gunicorn --bind 0.0.0.0:5000 wsgi:app`). Configure Gunicorn workers (e.g., `--workers 4`).",
+        "testStrategy": "Build the app Docker image. Run the app service directly (`docker-compose up app`). Verify Gunicorn starts and serves the Flask application on the specified port within the container.",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Configure Nginx Reverse Proxy",
+        "description": "Configure Nginx as a reverse proxy to forward external requests to the Gunicorn server running the Flask application.",
+        "details": "Create an Nginx configuration file (`nginx/nginx.conf`). Configure a server block to listen on port 80 (for HTTP, 443 for HTTPS later). Set up a `location /` block to proxy requests to the Gunicorn server (e.g., `proxy_pass http://app:5000;`). Ensure Nginx service in `docker-compose.yml` mounts this configuration file and depends on the `app` service. Map port 80 (or 443) from the host to the Nginx container.",
+        "testStrategy": "Update `docker-compose.yml` to include the Nginx service configuration. Run `docker-compose up -d`. Access the application via the host's Nginx port (e.g., `http://localhost`). Verify requests are correctly routed to the Flask application.",
+        "priority": "high",
+        "dependencies": [
+          10
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Dockerize Flask Application",
+        "description": "Create a Dockerfile for the Flask application to build a portable image containing the app code and dependencies.",
+        "details": "Create a `Dockerfile` in the `app/` directory. Use a suitable base image (e.g., `python:3.9-slim`). Copy `requirements.txt` and install dependencies (`pip install -r requirements.txt`). Copy the application code. Set the working directory. Define the command to run the application using Gunicorn (CMD or ENTRYPOINT). Expose the port Gunicorn listens on (e.g., 5000).",
+        "testStrategy": "Build the Docker image using `docker build -t smart-parking-app ./app`. Run the image locally (`docker run -p 5000:5000 smart-parking-app`). Verify the application starts and is accessible on the mapped port.",
+        "priority": "high",
+        "dependencies": [
+          10
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Refine Docker Compose Configuration",
+        "description": "Refine the `docker-compose.yml` file to correctly link services, manage environment variables, and ensure volumes are properly configured.",
+        "details": "Update `docker-compose.yml` to use the custom built `app` image. Ensure the `app` service depends on the `db` service (`depends_on`). Ensure the `nginx` service depends on the `app` service. Use environment variables defined in the `db` service for the `app` service's database connection string. Ensure the named volume for the database is correctly attached.",
+        "testStrategy": "Run `docker-compose build` and then `docker-compose up -d`. Verify all services start successfully and are healthy (`docker-compose ps`). Check container logs for errors.",
+        "priority": "high",
+        "dependencies": [
+          2,
+          11,
+          12
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Add Basic API Documentation",
+        "description": "Add basic API documentation using docstrings or a simple specification format.",
+        "details": "Add clear docstrings to API endpoint functions explaining their purpose, parameters, and responses. Alternatively, use a library like `flasgger` or `flask-restx` (which includes Swagger UI generation) to automatically generate documentation from code, or manually create a simple OpenAPI specification file (`openapi.yaml`) describing the MVP endpoints.",
+        "testStrategy": "Review the generated documentation (if using a library) or the docstrings/spec file for clarity and completeness regarding the implemented MVP endpoints.",
+        "priority": "medium",
+        "dependencies": [
+          9
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Initial End-to-End Test of Core Flow",
+        "description": "Perform an initial end-to-end test covering the core MVP flow: RPi updates slot status, and a client fetches the updated status.",
+        "details": "Using API testing tools (Postman, `curl`), first authenticate to get a client token. Then, simulate an RPi request to the slot status update endpoint (Task 8). Finally, use the client token to call the slot status fetch endpoint (Task 9) and verify that the status updated by the RPi simulation is correctly reflected in the client's response.",
+        "testStrategy": "Execute the sequence of API calls (authenticate, update, fetch). Verify the HTTP status codes and response bodies at each step match expectations, confirming data flows correctly through the system.",
+        "priority": "high",
+        "dependencies": [
+          8,
+          9,
+          13
+        ],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "Add Pytest for Authentication and Parking APIs",
+        "description": "Add comprehensive pytest scripts to test the authentication and parking API endpoints, including test environment setup and necessary fixtures.",
+        "details": "Set up the testing environment by installing `pytest` and `pytest-flask`. Create a `tests/` directory at the project root. Inside `tests/`, create a `conftest.py` file to define shared fixtures:\n\n1.  An `app` fixture that uses the application factory from `app/__init__.py` to create a test Flask application instance.\n2.  A `db` fixture that sets up an in-memory SQLite database for testing purposes. This fixture should handle creating all necessary tables before tests run and dropping them afterwards.\n3.  A `client` fixture using `app.test_client()` to make requests to the application.\n4.  Consider adding fixtures for a test user or authentication tokens to simplify testing protected routes.\n\nCreate separate test files for different modules, e.g., `tests/test_auth.py` and `tests/test_parking.py`. Write test cases covering:\n\n*   **Authentication:** Successful and unsuccessful user registration, successful and unsuccessful user login, accessing protected routes with and without valid tokens, token expiration (if applicable).\n*   **Parking:** CRUD operations for `ParkingLotDetails`, `Floor`, `Row`, `Slot` (Task 7), and fetching slot status (Task 9). Test edge cases and validation.\n\nUse the `client` fixture to make requests and assert on response status codes, headers, and JSON bodies. Utilize the `db` fixture to verify database state changes where necessary.",
+        "testStrategy": "Run the tests using the `pytest` command from the project root. Verify that all tests pass. Check the test output for any errors or failures. Ensure that tests cover the main functionalities of the authentication and parking APIs as described in the details. Manually review test coverage reports if generated to ensure critical code paths are tested.",
+        "status": "done",
+        "dependencies": [
+          3,
+          6,
+          7,
+          9
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 17,
+        "title": "Create Comprehensive README.md",
+        "description": "Create a comprehensive README.md file providing instructions for setting up, running, and testing the application locally using Docker Compose.",
+        "details": "Create a `README.md` file at the project root. Include the following sections:\n\n1.  **Prerequisites:** List necessary software (Docker, Docker Compose).\n2.  **Setup:** Explain how to clone the repository and ensure Docker and Docker Compose are installed and running.\n3.  **Running the Application:** Provide step-by-step instructions to build and start the application stack using `docker-compose build` and `docker-compose up -d`. Explain which services are started (app, db, nginx).\n4.  **Accessing the Application:** Explain how to access the application via the Nginx reverse proxy, specifying the default port (e.g., `http://localhost`).\n5.  **Running Tests:** Provide instructions on how to execute the pytest test suite, likely by running pytest within the application container or using a specific docker-compose command.\n6.  **API Documentation (Optional):** Mention where to find API documentation if available (referencing Task 14 if applicable).\n\nEnsure instructions are clear, concise, and easy to follow for someone new to the project.",
+        "testStrategy": "Review the generated `README.md` file. Follow the setup, running, and testing instructions provided in the README on a clean environment (or simulate the steps mentally) to ensure they are accurate, complete, and work as described. Verify that all necessary commands and access points are correctly documented.",
+        "status": "done",
+        "dependencies": [
+          11,
+          13,
+          16
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 18,
+        "title": "Create Root URL Landing Page",
+        "description": "Create a simple HTML landing page accessible at the root URL ('/') of the application.",
+        "details": "Implement a Flask route for the '/' path that renders a basic HTML template. Create an `index.html` template file in the `app/templates` directory containing a welcome message (e.g., 'Welcome to the Smart Parking Application!') and confirmation that the application is running. Ensure the Flask application is configured to locate and render templates correctly.",
+        "testStrategy": "Build and run the application stack using `docker-compose up --build -d`. Open a web browser and navigate to `http://localhost/`. Verify that the simple welcome page is displayed correctly and the content matches the expected message. Check the browser's developer console for any errors.",
+        "status": "done",
+        "dependencies": [
+          10,
+          11,
+          12
+        ],
+        "priority": "medium",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-06-20T05:24:22.727Z",
+      "updated": "2025-06-20T08:37:26.839Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
